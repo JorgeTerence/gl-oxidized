@@ -3,6 +3,8 @@ use glium::winit::event::{Event, WindowEvent};
 use glium::winit::event_loop::EventLoop;
 use glium::{implement_vertex, uniform, Surface, VertexBuffer};
 
+static VERTEX_SHADER_SRC: &str = include_str!("shaders/triangle-vertex.glsl");
+
 #[derive(Clone, Copy)]
 struct Vertex {
     position: [f32; 2],
@@ -41,19 +43,6 @@ fn main() {
     let vb = VertexBuffer::new(&display, &triangle).unwrap();
     let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
 
-    let vertex_shader_src = r#"
-        #version 140
-
-        in vec2 position;
-
-        uniform float x;
-
-        void main() {
-            float radius = sqrt(pow(position.x, 2) + pow(position.y, 2));
-            vec2 warped = vec2(position.x, sin(position.x + x / radius));
-            gl_Position = vec4(warped, 0.0, 1.0);
-        }"#;
-
     let fragment_shader_src = r#"
         #version 140
 
@@ -64,7 +53,7 @@ fn main() {
         }"#;
 
     let program =
-        glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None)
+        glium::Program::from_source(&display, VERTEX_SHADER_SRC, fragment_shader_src, None)
             .unwrap();
 
     let mut t: f32 = 0.0;
