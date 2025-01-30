@@ -1,6 +1,9 @@
 use winit::event_loop::EventLoop;
 
-use crate::renderer::{self, Primitive, Vertex};
+use crate::{
+    renderer::{self, Primitive, Vertex},
+    FRAGMENT_SRC, VERTEX_SRC,
+};
 
 pub const EARTH_GRAVITY: f32 = 9.81;
 
@@ -32,6 +35,8 @@ impl Scene {
     }
 
     pub fn execute(self) {
+        let mut program = renderer::Renderer::new(&self.lifecycle, self.title);
+
         let mut vertices = Vec::<Vertex>::new();
         let mut indices = Vec::<u32>::new();
 
@@ -42,7 +47,9 @@ impl Scene {
             indices.extend(i);
         }
 
-        let mut program = renderer::Renderer::new(&self.lifecycle, self.title, vertices, indices);
+        program =
+            program.with_objects(vertices, indices, VERTEX_SRC, FRAGMENT_SRC, Some("objects"));
+
         self.lifecycle
             .run_app(&mut program)
             .expect("Failed to run app");

@@ -11,8 +11,6 @@ use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowAttributes, WindowId};
 
-use crate::{FRAGMENT_SRC, VERTEX_SRC};
-
 #[derive(Clone, Copy)]
 pub struct Vertex {
     position: [f32; 2],
@@ -43,23 +41,23 @@ pub trait Primitive {
     fn get_primitives(self: Self, i: u32) -> (Vec<Vertex>, Vec<u32>);
 }
 
+struct Render {
+    vertices: VertexBuffer<Vertex>,
+    indices: IndexBuffer<u32>,
+    program: Program,
+    label: &'static str,
+}
+
 pub struct Renderer {
     _window: Box<Window>,
     display: Display<WindowSurface>,
     time: u32,
 
-    vertices: VertexBuffer<Vertex>,
-    indices: IndexBuffer<u32>,
-    program: Program,
+    objects: Vec<Render>,
 }
 
 impl Renderer {
-    pub fn new(
-        event_loop: &EventLoop<()>,
-        title: &'static str,
-        vertices: Vec<Vertex>,
-        indices: Vec<u32>,
-    ) -> Self {
+    pub fn new(event_loop: &EventLoop<()>, title: &'static str) -> Self {
         let (window, display) = SimpleWindowBuilder::new().build(event_loop);
         window.set_title(title);
 
@@ -67,23 +65,39 @@ impl Renderer {
         frame.clear_color(0.15, 0.45, 0.75, 1.0);
         frame.finish().unwrap();
 
-        let vertex_buffer =
-            VertexBuffer::new(&display, &vertices).expect("Failed to build schene's vertices");
-
-        let index_buffer = IndexBuffer::new(&display, PrimitiveType::TrianglesList, &indices)
-            .expect("Failed to build vertex mesh");
-
-        let program = Program::from_source(&display, VERTEX_SRC, FRAGMENT_SRC, None)
-            .expect("Failed to build GPU program");
-
         Self {
             _window: Box::new(window),
             display,
             time: 0,
+            objects: Vec::new(),
+        }
+    }
+
+    pub fn with_objects(
+        mut self,
+        vertices: Vec<Vertex>,
+        indices: Vec<u32>,
+        vertex: &'static str,
+        fragment: &'static str,
+        label: Option<&'static str>,
+    ) -> Self {
+        let program = Program::from_source(&self.display, vertex, fragment, None)
+            .expect("Failed to build GPU program");
+
+        let vertex_buffer =
+            VertexBuffer::new(&self.display, &vertices).expect("Failed to build schene's vertices");
+
+        let index_buffer = IndexBuffer::new(&self.display, PrimitiveType::TrianglesList, &indices)
+            .expect("Failed to build vertex mesh");
+
+        self.objects.push(Render {
             vertices: vertex_buffer,
             indices: index_buffer,
             program,
-        }
+            label: label.unwrap_or("<unknown>"),
+        });
+
+        self
     }
 }
 
@@ -109,24 +123,17 @@ impl ApplicationHandler for Renderer {
                 let mut target = self.display.draw();
                 target.clear_color(0.05, 0.45, 0.75, 1.0);
 
-                // Draw call for environment
-                // target.draw(
-
-                // ).expect("Failed to draw environment");
-
-                // Draw call for bodies
-                target
-                    .draw(
-                        &self.vertices,
-                        &self.indices,
-                        &self.program,
-                        &uniform! { t: self.time },
-                        &DrawParameters::default(),
-                    )
-                    .expect("Failed to draw bodies");
-
-                // Draw call for UI
-
+                for render in &self.objects {
+                    target
+                        .draw(
+                            &render.vertices,
+                            &render.indices,
+                            &render.program,
+                            &uniform! { t: self.time },
+                            &DrawParameters::default(),
+                        )
+                        .expect(format!("Failed to draw {}", render.label).as_str());
+                }
                 target.finish().unwrap();
             }
             _ => (),
