@@ -1,14 +1,20 @@
 use glium::backend::glutin::SimpleWindowBuilder;
-use glium::winit::event::{Event, WindowEvent};
+use glium::glutin::surface::WindowSurface;
+use glium::winit::event::WindowEvent;
 use glium::winit::event_loop::EventLoop;
-use glium::{implement_vertex, uniform, Surface, VertexBuffer};
+use glium::{implement_vertex, uniform, Display, Program, Surface, VertexBuffer};
+use winit::application::ApplicationHandler;
+use winit::window::{Window, WindowAttributes};
 
-static VERTEX_SHADER_SRC: &str = include_str!("shaders/triangle-vertex.glsl");
+static VERTEX_SRC: &str = include_str!("shaders/triangle-vertex.glsl");
+static FRAGMENT_SRC: &str = include_str!("shaders/triangle-fragment.glsl");
 
 #[derive(Clone, Copy)]
 struct Vertex {
     position: [f32; 2],
 }
+
+implement_vertex!(Vertex, position);
 
 impl Vertex {
     fn new(x: f32, y: f32) -> Self {
@@ -16,79 +22,124 @@ impl Vertex {
     }
 }
 
-implement_vertex!(Vertex, position);
+struct App<'a> {
+    title: &'a str,
+    vertices: Vec<Vertex>,
+    indices: Vec<usize>,
 
-fn centroid(triangle: Vec<Vertex>) -> [f32; 2] {
-    [
-        (triangle[0].position[0] + triangle[1].position[0] + triangle[2].position[0]) / 3.0,
-        (triangle[0].position[1] + triangle[1].position[1] + triangle[2].position[1]) / 3.0,
-    ]
+    time_delta: f32,
+    time: f32,
+
+    window: Window,
+    display: Display<WindowSurface>,
+
+    program: Option<Program>,
+    vb: Option<VertexBuffer<Vertex>>,
+}
+
+impl<'a> App<'a> {
+    pub fn new(event_loop: &EventLoop<()>, title: &'a str) -> Self {
+        let (window, display) = SimpleWindowBuilder::new().build(event_loop);
+
+        Self {
+            title,
+            vertices: vec![],
+            indices: vec![],
+            time_delta: 0.001,
+            time: 0.0,
+            window,
+            display,
+            program: None,
+            vb: None,
+        }
+    }
+
+    fn add_obj(&mut self, v: [Vertex; 3]) -> Result<(), &'static String> {
+        assert!(
+            v.iter().all(|v| 1.0 >= v.position[0]
+                && v.position[0] >= -1.0
+                && 1.0 >= v.position[1]
+                && v.position[1] >= -1.0),
+            "Vertices out of bounds"
+        );
+
+        self.indices
+            .extend(self.vertices.len()..self.vertices.len() + 3);
+        self.vertices.extend(v);
+
+        Ok(())
+    }
+
+    fn compile(
+        &mut self,
+        vertex_src: &'a str,
+        frag_src: &'a str,
+    ) -> Result<&Self, &'static String> {
+        self.program =
+            Some(Program::from_source(&self.display, vertex_src, frag_src, None).unwrap());
+
+        self.vb = Some(VertexBuffer::new(&self.display, &self.vertices).unwrap());
+
+        Ok(self)
+    }
+}
+
+impl<'a> ApplicationHandler for App<'a> {
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        event_loop
+            .create_window(
+                WindowAttributes::default()
+                    .with_title(self.title)
+                    .with_blur(true),
+            )
+            .expect("Faile to create application window");
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        _window_id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
+        match event {
+            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::Resized(window_size) => self.display.resize(window_size.into()),
+            WindowEvent::RedrawRequested => {
+                self.time += self.time_delta;
+
+                let t_off = self.time.sin() * 0.5;
+
+                let mut target = self.display.draw();
+                target.clear_color(0.0, 0.0, 1.0, 1.0);
+
+                target
+                    .draw(
+                        &self.vb,
+                        &self.indices,
+                        &self.program.unwrap(),
+                        &uniform! { x: t_off },
+                        &Default::default(),
+                    )
+                    .unwrap();
+
+                target.finish().unwrap();
+            }
+            _ => (),
+        }
+    }
 }
 
 fn main() {
-    let event_loop = EventLoop::builder().build().expect("event loop building");
-    let (window, display) = SimpleWindowBuilder::new().build(&event_loop);
-    window.set_title("OpenGL Oxidized");
+    let event_loop = EventLoop::new().expect("Failed event loop init");
+    let mut app = App::new(&event_loop, "OpenGL Oxidized");
 
-    let mut frame = display.draw();
-    frame.clear_color(0.0, 0.0, 1.0, 1.0);
-    frame.finish().unwrap();
-
-    let triangle = vec![
+    app.add_obj([
         Vertex::new(-0.5, -0.5),
         Vertex::new(0.0, 0.5),
         Vertex::new(0.75, -0.25),
-    ];
+    ]);
 
-    let vb = VertexBuffer::new(&display, &triangle).unwrap();
-    let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+    app.compile(VERTEX_SRC, FRAGMENT_SRC).unwrap();
 
-    let fragment_shader_src = r#"
-        #version 140
-
-        out vec4 color;
-
-        void main() {
-            color = vec4(1.0, 0.0, 0.0, 1.0);
-        }"#;
-
-    let program =
-        glium::Program::from_source(&display, VERTEX_SHADER_SRC, fragment_shader_src, None)
-            .unwrap();
-
-    let mut t: f32 = 0.0;
-    let _c = centroid(triangle);
-
-    #[allow(deprecated)]
-    let _ = event_loop.run(move |event, window_target| {
-        match event {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested => window_target.exit(),
-                WindowEvent::Resized(window_size) => display.resize(window_size.into()),
-                WindowEvent::RedrawRequested => {
-                    t += 0.001;
-
-                    let t_off = t.sin() * 0.5;
-
-                    let mut target = display.draw();
-                    target.clear_color(0.0, 0.0, 1.0, 1.0);
-
-                    target
-                        .draw(
-                            &vb,
-                            &indices,
-                            &program,
-                            &uniform! { x: t_off },
-                            &Default::default(),
-                        )
-                        .unwrap();
-
-                    target.finish().unwrap();
-                }
-                _ => (),
-            },
-            Event::AboutToWait => window.request_redraw(),
-            _ => (),
-        };
-    });
+    event_loop.run_app(&mut app);
 }
