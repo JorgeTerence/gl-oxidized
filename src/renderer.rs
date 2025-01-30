@@ -4,7 +4,7 @@ use glium::backend::glutin::SimpleWindowBuilder;
 use glium::glutin::surface::WindowSurface;
 use glium::index::PrimitiveType;
 use glium::{
-    implement_vertex, uniform, Display, DrawParameters, IndexBuffer, Surface, VertexBuffer,
+    implement_vertex, uniform, Display, DrawParameters, IndexBuffer, Program, Surface, VertexBuffer,
 };
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
@@ -39,16 +39,17 @@ impl Add<Vertex> for Vertex {
     }
 }
 
-pub struct Program {
+pub struct Renderer {
     _window: Box<Window>,
     display: Display<WindowSurface>,
     time: u32,
 
     vertices: VertexBuffer<Vertex>,
     indices: IndexBuffer<u32>,
+    program: Program,
 }
 
-impl Program {
+impl Renderer {
     pub fn new(
         event_loop: &EventLoop<()>,
         title: &'static str,
@@ -68,17 +69,21 @@ impl Program {
         let index_buffer = IndexBuffer::new(&display, PrimitiveType::TrianglesList, &indices)
             .expect("Failed to build vertex mesh");
 
+        let program = glium::Program::from_source(&display, VERTEX_SRC, FRAGMENT_SRC, None)
+            .expect("Failed to build GPU program");
+
         Self {
             _window: Box::new(window),
             display,
             time: 0,
             vertices: vertex_buffer,
             indices: index_buffer,
+            program,
         }
     }
 }
 
-impl ApplicationHandler for Program {
+impl ApplicationHandler for Renderer {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         event_loop
             .create_window(WindowAttributes::default())
@@ -100,19 +105,11 @@ impl ApplicationHandler for Program {
                 let mut target = self.display.draw();
                 target.clear_color(0.05, 0.45, 0.75, 1.0);
 
-                let program = glium::Program::from_source(
-                    &self.display,
-                    VERTEX_SRC,
-                    FRAGMENT_SRC,
-                    None,
-                )
-                .unwrap();
-
                 target
                     .draw(
                         &self.vertices,
                         &self.indices,
-                        &program,
+                        &self.program,
                         &uniform! { t: self.time },
                         &DrawParameters::default(),
                     )

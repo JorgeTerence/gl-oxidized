@@ -52,7 +52,7 @@ impl Scene {
             indices.extend(initial_index + 1..initial_index + 4);
         }
 
-        let mut program = renderer::Program::new(&self.lifecycle, self.title, vertices, indices);
+        let mut program = renderer::Renderer::new(&self.lifecycle, self.title, vertices, indices);
         self.lifecycle
             .run_app(&mut program)
             .expect("Failed to run app");
