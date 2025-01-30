@@ -48,7 +48,7 @@ impl Scene {
         }
 
         program =
-            program.with_objects(vertices, indices, VERTEX_SRC, FRAGMENT_SRC, Some("objects"));
+            program.with_objects(vertices, indices, VERTEX_SRC, FRAGMENT_SRC, Some("<bodies>"));
 
         self.lifecycle
             .run_app(&mut program)
@@ -65,7 +65,7 @@ pub struct Environment {
     friction: f32,
 }
 
-// Assumes all bodies are squares
+// Assumes all bodies are squares, yet
 pub struct Body {
     pub mass: f32, // >= 0
     pub acceleration: f32,

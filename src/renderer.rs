@@ -49,9 +49,10 @@ struct Render {
 }
 
 pub struct Renderer {
-    _window: Box<Window>,
+    window: Box<Window>,
     display: Display<WindowSurface>,
-    time: u32,
+    time: f32,
+    time_delta: f32,
 
     objects: Vec<Render>,
 }
@@ -66,9 +67,10 @@ impl Renderer {
         frame.finish().unwrap();
 
         Self {
-            _window: Box::new(window),
+            window: Box::new(window),
             display,
-            time: 0,
+            time: 0.0,
+            time_delta: 0.005,
             objects: Vec::new(),
         }
     }
@@ -106,19 +108,25 @@ impl ApplicationHandler for Renderer {
         event_loop
             .create_window(WindowAttributes::default())
             .expect("Faile to create application window");
+
+        self.window.request_redraw();
+    }
+
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        self.window.request_redraw();
     }
 
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
-        _window_id: WindowId,
+        window_id: WindowId,
         event: WindowEvent,
     ) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(window_size) => self.display.resize(window_size.into()),
             WindowEvent::RedrawRequested => {
-                self.time += 1;
+                self.time += self.time_delta;
 
                 let mut target = self.display.draw();
                 target.clear_color(0.05, 0.45, 0.75, 1.0);
@@ -132,7 +140,9 @@ impl ApplicationHandler for Renderer {
                             &uniform! { t: self.time },
                             &DrawParameters::default(),
                         )
-                        .expect(format!("Failed to draw {}", render.label).as_str());
+                        .expect(
+                            format!("|{:?}| failed to draw {}", window_id, render.label).as_str(),
+                        );
                 }
                 target.finish().unwrap();
             }
