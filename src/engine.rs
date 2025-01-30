@@ -1,6 +1,6 @@
 use winit::event_loop::EventLoop;
 
-use crate::renderer::{self, Vertex};
+use crate::renderer::{self, Primitive, Vertex};
 
 pub const EARTH_GRAVITY: f32 = 9.81;
 
@@ -32,24 +32,14 @@ impl Scene {
     }
 
     pub fn execute(self) {
-        // TODO: generate VBs for everything in the scene
         let mut vertices = Vec::<Vertex>::new();
         let mut indices = Vec::<u32>::new();
 
         for obj in self.bodies {
             let initial_index = vertices.len() as u32;
-
-            // Four vertices of the square
-            vertices.push(obj.pos); // 1
-            vertices.push(obj.pos + Vertex::new(0.0, obj.size));
-            vertices.push(obj.pos + Vertex::new(obj.size, 0.0));
-            vertices.push(obj.pos + Vertex::new(obj.size, obj.size));
-
-            // Six edges that connect the triangles that make up the square
-            // 0, 1, 2
-            // 1, 2, 3
-            indices.extend(initial_index..initial_index + 3);
-            indices.extend(initial_index + 1..initial_index + 4);
+            let (v, i) = obj.get_primitives(initial_index);
+            vertices.extend(v);
+            indices.extend(i);
         }
 
         let mut program = renderer::Renderer::new(&self.lifecycle, self.title, vertices, indices);
@@ -75,6 +65,22 @@ pub struct Body {
     pub velocity: (f32, f32, f32), // 3D vector
     pub size: f32,
     pub pos: Vertex,
+}
+
+impl Primitive for Body {
+    fn get_primitives(self: Self, i: u32) -> (Vec<Vertex>, Vec<u32>) {
+        (
+            // Four vertices of the square
+            vec![
+                self.pos,
+                self.pos + Vertex::new(0.0, self.size),
+                self.pos + Vertex::new(self.size, 0.0),
+                self.pos + Vertex::new(self.size, self.size),
+            ],
+            // Six edges that connect the triangles that make up the square
+            (i..i + 3).chain(i + 1..i + 4).collect(),
+        )
+    }
 }
 
 pub struct UI {

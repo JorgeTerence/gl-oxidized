@@ -3,8 +3,8 @@ use renderer::Vertex;
 mod engine;
 mod renderer;
 
-static VERTEX_SRC: &str = include_str!("shaders/triangle-vertex.glsl");
-static FRAGMENT_SRC: &str = include_str!("shaders/triangle-fragment.glsl");
+static VERTEX_SRC: &str = include_str!("shaders/bodies/vertex.glsl");
+static FRAGMENT_SRC: &str = include_str!("shaders/bodies/fragment.glsl");
 
 fn main() {
     let mut scene = engine::Scene::new("OpenGL Oxidized", engine::EARTH_GRAVITY);

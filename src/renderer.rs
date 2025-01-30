@@ -8,8 +8,8 @@ use glium::{
 };
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
-use winit::event_loop::EventLoop;
-use winit::window::{Window, WindowAttributes};
+use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::window::{Window, WindowAttributes, WindowId};
 
 use crate::{FRAGMENT_SRC, VERTEX_SRC};
 
@@ -37,6 +37,10 @@ impl Add<Vertex> for Vertex {
             ],
         }
     }
+}
+
+pub trait Primitive {
+    fn get_primitives(self: Self, i: u32) -> (Vec<Vertex>, Vec<u32>);
 }
 
 pub struct Renderer {
@@ -69,7 +73,7 @@ impl Renderer {
         let index_buffer = IndexBuffer::new(&display, PrimitiveType::TrianglesList, &indices)
             .expect("Failed to build vertex mesh");
 
-        let program = glium::Program::from_source(&display, VERTEX_SRC, FRAGMENT_SRC, None)
+        let program = Program::from_source(&display, VERTEX_SRC, FRAGMENT_SRC, None)
             .expect("Failed to build GPU program");
 
         Self {
@@ -84,7 +88,7 @@ impl Renderer {
 }
 
 impl ApplicationHandler for Renderer {
-    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         event_loop
             .create_window(WindowAttributes::default())
             .expect("Faile to create application window");
@@ -92,9 +96,9 @@ impl ApplicationHandler for Renderer {
 
     fn window_event(
         &mut self,
-        event_loop: &winit::event_loop::ActiveEventLoop,
-        _window_id: winit::window::WindowId,
-        event: winit::event::WindowEvent,
+        event_loop: &ActiveEventLoop,
+        _window_id: WindowId,
+        event: WindowEvent,
     ) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
@@ -105,6 +109,12 @@ impl ApplicationHandler for Renderer {
                 let mut target = self.display.draw();
                 target.clear_color(0.05, 0.45, 0.75, 1.0);
 
+                // Draw call for environment
+                // target.draw(
+
+                // ).expect("Failed to draw environment");
+
+                // Draw call for bodies
                 target
                     .draw(
                         &self.vertices,
@@ -113,7 +123,9 @@ impl ApplicationHandler for Renderer {
                         &uniform! { t: self.time },
                         &DrawParameters::default(),
                     )
-                    .expect("Failed GPU drawing call to");
+                    .expect("Failed to draw bodies");
+
+                // Draw call for UI
 
                 target.finish().unwrap();
             }
