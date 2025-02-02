@@ -47,8 +47,13 @@ impl Scene {
             indices.extend(i);
         }
 
-        program =
-            program.with_objects(vertices, indices, VERTEX_SRC, FRAGMENT_SRC, Some("<bodies>"));
+        program = program.with_objects(
+            vertices,
+            indices,
+            VERTEX_SRC,
+            FRAGMENT_SRC,
+            Some("<bodies>"),
+        );
 
         self.lifecycle
             .run_app(&mut program)

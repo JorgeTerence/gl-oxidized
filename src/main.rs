@@ -15,7 +15,7 @@ fn main() {
             acceleration: 0.0,
             velocity: (2.0, 0.0, 0.0),
             size: 1.0,
-            pos: Vertex::new(-0.25, -0.25),
+            pos: Vertex::new(0.0, 0.0),
         })
         .expect("Failed to load object");
 

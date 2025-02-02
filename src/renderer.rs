@@ -3,6 +3,7 @@ use std::ops::Add;
 use glium::backend::glutin::SimpleWindowBuilder;
 use glium::glutin::surface::WindowSurface;
 use glium::index::PrimitiveType;
+use glium::uniforms::{AsUniformValue, UniformValue};
 use glium::{
     implement_vertex, uniform, Display, DrawParameters, IndexBuffer, Program, Surface, VertexBuffer,
 };
@@ -37,6 +38,12 @@ impl Add<Vertex> for Vertex {
     }
 }
 
+impl AsUniformValue for Vertex {
+    fn as_uniform_value(&self) -> UniformValue<'_> {
+        UniformValue::Vec2(self.position)
+    }
+}
+
 pub trait Primitive {
     fn get_primitives(self: Self, i: u32) -> (Vec<Vertex>, Vec<u32>);
 }
@@ -53,6 +60,7 @@ pub struct Renderer {
     display: Display<WindowSurface>,
     time: f32,
     time_delta: f32,
+    cursor: Vertex,
 
     objects: Vec<Render>,
 }
@@ -71,6 +79,7 @@ impl Renderer {
             display,
             time: 0.0,
             time_delta: 0.005,
+            cursor: Vertex::new(0.0, 0.0),
             objects: Vec::new(),
         }
     }
@@ -83,8 +92,10 @@ impl Renderer {
         fragment: &'static str,
         label: Option<&'static str>,
     ) -> Self {
+        let label = label.unwrap_or("<unknown>");
+
         let program = Program::from_source(&self.display, vertex, fragment, None)
-            .expect("Failed to build GPU program");
+            .expect(format!("Failed to build GPU program for {}", label).as_str());
 
         let vertex_buffer =
             VertexBuffer::new(&self.display, &vertices).expect("Failed to build schene's vertices");
@@ -96,7 +107,7 @@ impl Renderer {
             vertices: vertex_buffer,
             indices: index_buffer,
             program,
-            label: label.unwrap_or("<unknown>"),
+            label,
         });
 
         self
@@ -125,6 +136,14 @@ impl ApplicationHandler for Renderer {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(window_size) => self.display.resize(window_size.into()),
+            WindowEvent::CursorMoved {
+                device_id: _,
+                position,
+            } => {
+                println!("cursor@[{},{}]", position.x, position.y);
+                let window_size = self.window.inner_size();
+                self.cursor = Vertex::new(position.x as f32 / window_size.width as f32, position.y as f32 / window_size.height as f32);
+            }
             WindowEvent::RedrawRequested => {
                 self.time += self.time_delta;
 
@@ -137,7 +156,7 @@ impl ApplicationHandler for Renderer {
                             &render.vertices,
                             &render.indices,
                             &render.program,
-                            &uniform! { t: self.time },
+                            &uniform! { cursor: self.cursor },
                             &DrawParameters::default(),
                         )
                         .expect(
